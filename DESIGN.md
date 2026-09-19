@@ -1,7 +1,5 @@
 # M1 DESIGN.md
 
-Replace this template with your own concise engineering explanation.
-
 ## 1. System structure
 
 M1 is split into six pieces that build on the Document and Workspace classes from M0. TextProcessor handles all text normalization and it is the only place that decides what counts as a token, so documents and queries are always normalized the same way. Chunker takes one document's tokens and splits them into overlapping Chunk objects using the 120/20/20 rule from the spec. CorpusIndex takes all the chunks and builds a searchable term-to-chunk lookup. RetrievalEngine takes a query, normalizes it, and scores and ranks the chunks in the index. ContextBuilder takes the ranked results and packs them into a token budget. ProcessingCore sits on top of all of this and owns the actual state, so a caller only interacts with ProcessingCore's rebuild, search, and build_context functions instead of the five pieces directly.
@@ -16,5 +14,7 @@ The main invariant is that a failed rebuild() should never leave the corpus half
 
 Each component is tested directly instead of only through ProcessingCore, so a failure points to the exact piece that broke. I tested TextProcessor's normalization and paragraph detection, Chunker's exact token/overlap limits and paragraph-boundary preference, CorpusIndex's frequency lookups and rebuild behavior, RetrievalEngine's tie-breaking with two identically-scored chunks, and ContextBuilder's exact-fit versus truncated budgets. One larger end-to-end test covers three documents through the full pipeline.
 
+
 ## 5. Alternatives considered
-Each component is tested directly instead of only through ProcessingCore, so a failure points to the exact piece that broke. I tested TextProcessor's normalization and paragraph detection, Chunker's exact token/overlap limits and paragraph-boundary preference, CorpusIndex's frequency lookups and rebuild behavior, RetrievalEngine's tie-breaking with two identically-scored chunks, and ContextBuilder's exact-fit versus truncated budgets. One larger end-to-end test covers three documents through the full pipeline.
+
+ I considered re-running TextProcessor's tokenizer on chunk text everywhere terms are needed, but went with a small space-split helper instead since chunk text is already normalized and re-tokenizing it is wasted work. I also considered editing the corpus in place during rebuild() and rolling back on failure, but that would require copying the whole old corpus as a backup on every call. Building the new corpus separately and swapping it in only after success avoids that cost.
